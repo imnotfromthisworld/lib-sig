@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use x25519_dalek::{PublicKey, StaticSecret};
 
+use StaticSecret as PrivateKey;
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct KeyPair {
-    private: StaticSecret,
+    private: PrivateKey,
     public: PublicKey,
 }
 
@@ -56,12 +58,12 @@ impl ChainKey {
 
 impl KeyPair {
     pub fn new() -> Self {
-        let private = StaticSecret::new(OsRng);
+        let private = PrivateKey::new(OsRng);
         let public = PublicKey::from(&private);
         KeyPair { private, public }
     }
 
-    pub fn private(&self) -> &StaticSecret {
+    pub fn private(&self) -> &PrivateKey {
         &self.private
     }
 
@@ -79,7 +81,7 @@ impl Default for KeyPair {
 impl From<([u8; 32], [u8; 32])> for KeyPair {
     fn from(keys: ([u8; 32], [u8; 32])) -> Self {
         KeyPair {
-            private: StaticSecret::from(keys.0),
+            private: PrivateKey::from(keys.0),
             public: PublicKey::from(keys.1),
         }
     }
@@ -100,48 +102,14 @@ impl From<[u8; 32]> for RootKey {
     }
 }
 
-// shared secret for demo purposes, later should be negotiated using X3DH protocol or similar
-const SHRD_SECRET: [u8; 32] = [
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-];
-
 impl State {
-    pub fn init_alice() -> State {
-        let bob_public_key: [u8; 32] = [
-            0xa4, 0xe0, 0x92, 0x92, 0xb6, 0x51, 0xc2, 0x78, 0xb9, 0x77, 0x2c, 0x56, 0x9f, 0x5f,
-            0xa9, 0xbb, 0x13, 0xd9, 0x06, 0xb4, 0x6a, 0xb6, 0x8c, 0x9d, 0xf9, 0xdc, 0x2b, 0x44,
-            0x09, 0xf8, 0xa2, 0x09,
-        ];
-
-        let bob_pub = PublicKey::from(bob_public_key);
-        let key_pair = KeyPair::new();
+    pub fn new(my_keys: KeyPair, other_pub_key: PublicKey) -> State {
+        let shared_secret = my_keys.private().diffie_hellman(&other_pub_key).to_bytes();
 
         State {
-            key_pair,
-            dh_pub: Some(bob_pub),
-            root_key: RootKey::from(SHRD_SECRET),
-            chain_send: None,
-            chain_recv: None,
-            pn: 0,
-        }
-    }
-
-    pub fn init_bob() -> State {
-        let private_key: [u8; 32] = [
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-            0x01, 0x01, 0x01, 0x01,
-        ];
-        let public_key: [u8; 32] = [
-            0xa4, 0xe0, 0x92, 0x92, 0xb6, 0x51, 0xc2, 0x78, 0xb9, 0x77, 0x2c, 0x56, 0x9f, 0x5f,
-            0xa9, 0xbb, 0x13, 0xd9, 0x06, 0xb4, 0x6a, 0xb6, 0x8c, 0x9d, 0xf9, 0xdc, 0x2b, 0x44,
-            0x09, 0xf8, 0xa2, 0x09,
-        ];
-        State {
-            key_pair: KeyPair::from((private_key, public_key)),
-            dh_pub: None,
-            root_key: RootKey::from(SHRD_SECRET),
+            key_pair: my_keys,
+            dh_pub: Some(other_pub_key),
+            root_key: RootKey::from(shared_secret),
             chain_send: None,
             chain_recv: None,
             pn: 0,
@@ -179,7 +147,7 @@ impl State {
 
 pub fn kdf_root_key(
     root_key: &RootKey,
-    private_key: &StaticSecret,
+    private_key: &PrivateKey,
     public_key: &PublicKey,
 ) -> (RootKey, ChainKey) {
     let shared_secret = private_key.diffie_hellman(public_key);

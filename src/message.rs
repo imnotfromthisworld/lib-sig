@@ -8,6 +8,17 @@ use x25519_dalek::PublicKey;
 use crate::crypto::{kdf_chain_key, kdf_root_key, KeyPair, State};
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct RegisterMessage {
+    pub client_name: String,
+}
+
+impl RegisterMessage {
+    pub fn new(client_name: String) -> Self {
+        Self { client_name }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Message {
     pub sender_name: String,
     pub recv_name: String,
@@ -21,6 +32,50 @@ pub struct EncryptedMessage {
     pub recv_name: String,
     pub encrypted_msg: Vec<u8>,
     pub public_key: PublicKey,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ErrMessage {
+    error: String,
+}
+
+impl ErrMessage {
+    pub fn new(error: String) -> Self {
+        Self { error }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Info {
+    pub info: String,
+}
+
+impl Info {
+    pub fn new(info: String) -> Self {
+        Self { info }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PubKey {
+    pub user: String,
+    pub public_key: PublicKey,
+}
+
+impl PubKey {
+    pub fn new(user: String, public_key: PublicKey) -> Self {
+        Self { user, public_key }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Msg {
+    Message(Message),
+    EncryptedMessage(EncryptedMessage),
+    Register(RegisterMessage),
+    Err(ErrMessage),
+    Info(Info),
+    PubKey(PubKey),
 }
 
 impl Message {

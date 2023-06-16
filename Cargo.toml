@@ -20,4 +20,5 @@ x25519-dalek = { version = "1.2.0", features = ["serde"] }
 aes-siv = "0.7.0"
 hex-literal = "0.3.4"
 rand_core = "0.5.1"
+rand = "0.8.5"
 
